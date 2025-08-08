@@ -27,7 +27,7 @@ class StockResupplyOrder(models.Model):
         default=lambda self: self.env.company,
     )
 
-    stock_resupply_order_lines = fields.One2many(
+    stock_resupply_order_line_ids = fields.One2many(
         "stock.resupply.order.line",
         inverse_name="stock_resupply_order_id",
         help="All product quantities desired at the given location",
@@ -88,7 +88,7 @@ class StockResupplyOrder(models.Model):
 
         procurements = []
 
-        for line in self.stock_resupply_order_lines:
+        for line in self.stock_resupply_order_line_ids:
             # service products have no tracking/lot and cannot be run in procurement
             if line.product_id.product_tmpl_id.type == "service":
                 continue
@@ -118,11 +118,12 @@ class StockResupplyOrder(models.Model):
 
         return self.procurement_group_id
 
+    @api.model
     def _get_available_quantity_for_product(
         self, quant_groups, stock_resupply_order_line
     ):
         try:
-            # I could not find a way to merge stock_resupply_order_lines
+            # I could not find a way to merge stock_resupply_order_line_ids
             # with the quant_groups query, so it is retrieved with a product
             # id search here. Not ideal, but it works.
             group = next(
@@ -139,6 +140,9 @@ class StockResupplyOrder(models.Model):
         """
         Values to pass to the procurement once the order is run.
         """
+
+        self.ensure_one()
+
         return {
             "group_id": self.procurement_group_id,
         }
@@ -149,6 +153,8 @@ class StockResupplyOrder(models.Model):
         apply specific constraints.
         """
 
+        self.ensure_one()
+
         return (
             self.env["stock.quant"]
             .sudo()
@@ -158,7 +164,7 @@ class StockResupplyOrder(models.Model):
                     (
                         "product_id",
                         "in",
-                        self.stock_resupply_order_lines.product_id.ids,
+                        self.stock_resupply_order_line_ids.product_id.ids,
                     ),
                 ],
                 # Cant aggregate available_quantity here.
